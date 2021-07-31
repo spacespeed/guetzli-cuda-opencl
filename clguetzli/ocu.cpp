@@ -41,9 +41,9 @@ ocu_args_d_t& getOcu(void)
     char* ptx = nullptr;
     size_t src_size = 0;
 if (sizeof(void*) == 8)
-    ReadSourceFromFile("clguetzli/clguetzli.cu.ptx64", &ptx, &src_size);
+    ReadSourceFromFile("clguetzli.cu.ptx64", &ptx, &src_size);
 else
-    ReadSourceFromFile("clguetzli/clguetzli.cu.ptx32", &ptx, &src_size);
+    ReadSourceFromFile("clguetzli.cu.ptx32", &ptx, &src_size);
 
     CUmodule mod;
     CUjit_option jit_options[2];

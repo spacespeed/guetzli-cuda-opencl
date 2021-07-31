@@ -1,3 +1,4 @@
+#define __USE_CUDA__
 /*
 * OpenCL Kernels
 *
