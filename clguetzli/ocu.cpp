@@ -8,6 +8,7 @@
 #ifdef __USE_CUDA__
 #include <cuda.h>
 #include <nvrtc.h>
+#include "clguetzli/clguetzli_cu_ptx.h"
 
 ocu_args_d_t& getOcu(void)
 {
@@ -38,12 +39,13 @@ ocu_args_d_t& getOcu(void)
     cuDeviceGetAttribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
     LogError("CUDA Adapter:%s Ver%d.%d MP %d MaxThread Per MP %d)\r\n", name, cap_major, cap_minor, proc_count, thread_count);
 
-    char* ptx = nullptr;
-    size_t src_size = 0;
-if (sizeof(void*) == 8)
-    ReadSourceFromFile("clguetzli.cu.ptx64", &ptx, &src_size);
-else
-    ReadSourceFromFile("clguetzli.cu.ptx32", &ptx, &src_size);
+    const char* ptx = (char*)clguetzli_cu64;
+    size_t src_size = sizeof(clguetzli_cu64);
+
+//if (sizeof(void*) == 8)
+//    ReadSourceFromFile("clguetzli.cu.ptx64", &ptx, &src_size);
+//else
+//    ReadSourceFromFile("clguetzli.cu.ptx32", &ptx, &src_size);
 
     CUmodule mod;
     CUjit_option jit_options[2];
@@ -53,7 +55,7 @@ else
     err = cuModuleLoadDataEx(&mod, ptx, 1, jit_options, jit_optvals);
     LOG_CU_RESULT(err);
 
-    delete[] ptx;
+    //delete[] ptx;
 
     cuModuleGetFunction(&ocu.kernel[KERNEL_CONVOLUTION], mod, "clConvolutionEx");
     cuModuleGetFunction(&ocu.kernel[KERNEL_CONVOLUTIONX], mod, "clConvolutionXEx");

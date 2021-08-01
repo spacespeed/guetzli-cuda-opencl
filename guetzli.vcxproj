@@ -100,6 +100,9 @@
   <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <VcpkgUseStatic>true</VcpkgUseStatic>
   </PropertyGroup>
+  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <VcpkgUseStatic>true</VcpkgUseStatic>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -139,8 +142,11 @@
     <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
-      <Command>7z a guetzli_cuda_win_64.zip .\bin\x86_64\Release\guetzli.exe .\clguetzli.cu.ptx64</Command>
+      <Command>7z a guetzli_cuda_win_64.zip .\bin\x86_64\Release\guetzli.exe</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>$(ProjectDir)compile.bat 64</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
