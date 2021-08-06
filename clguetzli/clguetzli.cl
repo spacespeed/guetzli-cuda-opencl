@@ -1,5 +1,7 @@
-#define __USE_CUDA__
-/*
+#ifndef __CL_GUETZLI_CU__
+#define __USE_OPENCL__
+#endif
+/* 
 * OpenCL Kernels
 *
 * Author: strongtu@tencent.com
@@ -62,7 +64,7 @@ __device__ void Butteraugli8x8CornerEdgeDetectorDiff(
 __device__ int MakeInputOrderEx(const coeff_t block[3*8*8], const coeff_t orig_block[3*8*8], IntFloatPairList *input_order);
 
 __device__ double Factor2(const channel_info mayout_channel[3],
-                        const coeff_t* candidate_block, 
+						__private const coeff_t* candidate_block,
                         const int block_x, 
                         const int block_y, 
                         __global const float *orig_image_batch,
@@ -71,7 +73,7 @@ __device__ double Factor2(const channel_info mayout_channel[3],
                         const int image_height);
 
 __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
-    const coeff_t* candidate_block,
+    __private const coeff_t* candidate_block,
     const int block_x,
     const int block_y,
     __global const float *orig_image_batch,
@@ -80,7 +82,7 @@ __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
     const int image_height);
 
 __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
-    const coeff_t* candidate_block,
+    __private const coeff_t* candidate_block,
     const int block_x,
     const int block_y,
     __global const float *orig_image_batch,
@@ -1668,18 +1670,18 @@ __device__ void ButteraugliBlockDiff(__private double xyb0[3 * kBlockSize],
 			diff_xyb_edge_dc);
 	}
 
-	double* xyb_avg = xyb0;
-	double* xyb_halfdiff = xyb1;
+	__private double* xyb_avg = xyb0;
+	__private double* xyb_halfdiff = xyb1;
 	for (int i = 0; i < 3 * kBlockSize; ++i) {
 		double avg = (xyb0[i] + xyb1[i]) / 2;
 		double halfdiff = (xyb0[i] - xyb1[i]) / 2;
 		xyb_avg[i] = avg;
 		xyb_halfdiff[i] = halfdiff;
 	}
-	double *y_avg = &xyb_avg[kBlockSize];
-	double *x_halfdiff_squared = &xyb_halfdiff[0];
-	double *y_halfdiff = &xyb_halfdiff[kBlockSize];
-	double *z_halfdiff_squared = &xyb_halfdiff[2 * kBlockSize];
+	__private double *y_avg = &xyb_avg[kBlockSize];
+	__private double *x_halfdiff_squared = &xyb_halfdiff[0];
+	__private double *y_halfdiff = &xyb_halfdiff[kBlockSize];
+	__private double *z_halfdiff_squared = &xyb_halfdiff[2 * kBlockSize];
 	ButteraugliFFTSquared(y_avg);
 	ButteraugliFFTSquared(x_halfdiff_squared);
 	ButteraugliFFTSquared(y_halfdiff);
@@ -3151,8 +3153,8 @@ __device__ void Convolution(size_t xsize, size_t ysize,
 
 __device__ void BlurEx(const float *r, int xsize, int ysize, double kSigma, double border_ratio, float *output)
 {
-	const double sigma = 1.1;
-	double m = 2.25;  // Accuracy increases when m is increased.
+	// const double sigma = 1.1;
+	// double m = 2.25;  // Accuracy increases when m is increased.
 	const double scaler = -0.41322314049586772; // when sigma=1.1, scaler is -0.41322314049586772
 	const int diff = 2;  // when sigma=1.1, diff's value is 2.
 	const int expn_size = 5; // when sigma=1.1, scaler is  5
@@ -3381,7 +3383,7 @@ __device__ int GetOrigBlock(float rgb0_c[3][kDCTBlockSize],
 }
 
 __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
-    const coeff_t* candidate_block,
+    __private const coeff_t* candidate_block,
     const int block_x,
     const int block_y,
     __global const float *orig_image_batch,
@@ -3389,7 +3391,7 @@ __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
     const int image_width,
     const int image_height)
 {
-    const coeff_t *candidate_channel[3];
+    __private const coeff_t *candidate_channel[3];
     for (int c = 0; c < 3; c++) {
         candidate_channel[c] = &candidate_block[c * 8 * 8];
     }
@@ -3400,7 +3402,7 @@ __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
     for (int c = 0; c < 3; c++)
     {
         if (mayout_channel[c].factor == 1) {
-            const coeff_t *coeff_block = candidate_channel[c];
+            __private const coeff_t *coeff_block = candidate_channel[c];
             CoeffToYUV8x8(coeff_block, &yuv8x8[c]);
         }
         else {
@@ -3437,7 +3439,7 @@ __device__ double CompareBlockFactor1(const channel_info mayout_channel[3],
 }
 
 __device__ double Factor2(const channel_info mayout_channel[3],
-    const coeff_t* candidate_block,
+	__private const coeff_t* candidate_block,
     const int block_x,
     const int block_y,
     __global const float *orig_image_batch,
@@ -3446,7 +3448,7 @@ __device__ double Factor2(const channel_info mayout_channel[3],
     const int image_height)
 {
     const int factor = 2;
-    const coeff_t *candidate_channel[3];
+    __private const coeff_t *candidate_channel[3];
     for (int c = 0; c < 3; c++) {
         candidate_channel[c] = &candidate_block[c * 8 * 8];
     }
@@ -3478,7 +3480,7 @@ __device__ double Factor2(const channel_info mayout_channel[3],
                 }
         }
         else {
-                const coeff_t * coeff_block = candidate_channel[c];
+                __private const coeff_t * coeff_block = candidate_channel[c];
                 CoeffToYUV16x16(coeff_block, &yuv16x16[c],
                     mayout_channel[c].pixel, block_x, block_y,
                     image_width,
@@ -3517,7 +3519,7 @@ __device__ double Factor2(const channel_info mayout_channel[3],
 }
 
 __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
-                          const coeff_t* candidate_block, 
+                          __private const coeff_t* candidate_block, 
                           const int block_x, 
                           const int block_y, 
                           __global const float *orig_image_batch,
@@ -3526,7 +3528,7 @@ __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
                           const int image_height,
                           const int factor)
 {
-    const coeff_t *candidate_channel[3];
+    __private const coeff_t *candidate_channel[3];
     for (int c = 0; c < 3; c++) {
         candidate_channel[c] = &candidate_block[c * 8 * 8];
     }
@@ -3538,7 +3540,7 @@ __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
     {
         if (mayout_channel[c].factor == 1) {
             if (factor == 1) {
-                const coeff_t *coeff_block = candidate_channel[c];
+                __private const coeff_t *coeff_block = candidate_channel[c];
                 CoeffToYUV8x8(coeff_block, &yuv8x8[c]);
             }
             else {
@@ -3582,7 +3584,7 @@ __device__ double CompareBlockFactor(const channel_info mayout_channel[3],
                 Copy16x16To8x8(&yuv16x16[c], &yuv8x8[c], ix, iy);
             }
             else {
-                const coeff_t * coeff_block = candidate_channel[c];
+                __private const coeff_t * coeff_block = candidate_channel[c];
                 CoeffToYUV16x16(coeff_block, &yuv16x16[c], 
                     mayout_channel[c].pixel, block_x, block_y, 
                     image_width, 

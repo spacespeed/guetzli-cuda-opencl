@@ -4,9 +4,12 @@
 * Author: strongtu@tencent.com
 *         ianhuang@tencent.com
 */
+
 #include "ocl.h"
 #include <string.h>
 #include <vector>
+#include "clguetzli/clguetzli_cl_src.h"
+
 
 #ifdef __USE_OPENCL__
 
@@ -21,13 +24,13 @@ ocl_args_d_t& getOcl(void)
     cl_int err = SetupOpenCL(&ocl, CL_DEVICE_TYPE_GPU);
     LOG_CL_RESULT(err);
 
-    char* source = nullptr;
-    size_t src_size = 0;
-    ReadSourceFromFile("clguetzli/clguetzli.cl", &source, &src_size);
+	const char* source = (char*)clguetzli_cl_src;
+    size_t src_size = sizeof(clguetzli_cl_src);
+    // ReadSourceFromFile("clguetzli/clguetzli.cl", &source, &src_size);
 
     ocl.program = clCreateProgramWithSource(ocl.context, 1, (const char**)&source, &src_size, &err);
 
-    delete[] source;
+    // delete[] source;
 
     err = clBuildProgram(ocl.program, 1, &ocl.device, "", NULL, NULL);
     LOG_CL_RESULT(err);
