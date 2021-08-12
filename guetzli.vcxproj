@@ -142,7 +142,7 @@
     <PreBuildEvent />
     <PostBuildEvent />
     <PostBuildEvent>
-      <Command>7z a guetzli_cuda_win_64.zip .\bin\x86_64\Release\guetzli.exe</Command>
+      <Command>7z a guetzli_cuda_opencl_win_64.zip .\bin\x86_64\Release\guetzli.exe</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>$(ProjectDir)compile.bat 64</Command>
