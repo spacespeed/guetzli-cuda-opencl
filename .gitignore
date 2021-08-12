@@ -25,3 +25,5 @@ test/
 *.zip
 
 *.ptx64
+
+performanceTest.bat
