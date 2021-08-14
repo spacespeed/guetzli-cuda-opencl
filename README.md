@@ -24,7 +24,7 @@ Check the 'Extra features' section to see how to enable CUDA or OpenCL.
 
 # Building
 
-## On POSIX systems
+## On POSIX systems (outdated and not tested yet)
 
 1.  Get a copy of the source code, either by cloning this repository, or by
     downloading an
@@ -48,13 +48,14 @@ Check the 'Extra features' section to see how to enable CUDA or OpenCL.
     unpacking it.
 2.  Install [Visual Studio 2015](https://www.visualstudio.com) and
     [vcpkg](https://github.com/Microsoft/vcpkg)
-3.  Install `libpng` using vcpkg: `.\vcpkg install libpng`.
+3.  Install `libpng` using vcpkg: `.\vcpkg install libpng:x64-windows-static`.
+3.  Install `libpng` using vcpkg: `vcpkg install tiff:x64-windows-static`.
 4.  Cause the installed packages to be available system-wide: `.\vcpkg integrate
     install`. If you prefer not to do this, refer to [vcpkg's
     documentation](https://github.com/Microsoft/vcpkg/blob/master/docs/EXAMPLES.md#example-1-2).
 5.  Open the Visual Studio project enclosed in the repository and build it.
 
-## On macOS
+## On macOS (outdated and not tested yet)
 
 To install using [Homebrew](https://brew.sh/):
 1. Install [Homebrew](https://brew.sh/)
@@ -73,7 +74,7 @@ To install using the repository:
     *   If you installed using [Homebrew](https://brew.sh/) simply use `make`
     *   If you installed using [MacPorts](https://www.macports.org/) use `CFLAGS='-I/opt/local/include' LDFLAGS='-L/opt/local/lib' make`
 
-## With Bazel
+## With Bazel (outdated and not tested yet)
 
 There's also a [Bazel](https://bazel.build) build configuration provided. If you
 have Bazel installed, you can also compile Guetzli by running `bazel build -c opt //:guetzli`.
@@ -91,11 +92,12 @@ using about 1 minute of CPU per 1 MPix of input image.
 
 To try out Guetzli you need to [build](#building) or
 [download](https://github.com/google/guetzli/releases) the Guetzli binary. The
-binary reads a PNG or JPEG image and creates an optimized JPEG image:
+binary reads a PNG or JPEG or TIFF image and creates an optimized JPEG image:
 
 ```bash
 guetzli [--quality Q] [--verbose] original.png output.jpg
 guetzli [--quality Q] [--verbose] original.jpg output.jpg
+guetzli [--quality Q] [--verbose] original.tiff output.jpg
 ```
 
 Note that Guetzli is designed to work on high quality images. You should always
@@ -185,6 +187,7 @@ before encoding.
 ```bash
 guetzli [--c|--cuda|--opencl] [other options] original.png output.jpg
 guetzli [--c|--cuda|--opencl] [other options] original.jpg output.jpg
+guetzli [--c|--cuda|--opencl] [other options] original.tiff output.jpg
 ```
 You can pass a `--c` parameter to enable the procedure optimization or `--cuda` parameter to use the CUDA acceleration or `--opencl` to use the OpenCL acceleration.
 

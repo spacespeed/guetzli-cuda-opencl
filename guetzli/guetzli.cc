@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string.h>
 #include "png.h"
+#include "tiffio.h"
 #include "guetzli/jpeg_data.h"
 #include "guetzli/jpeg_data_reader.h"
 #include "guetzli/processor.h"
@@ -35,125 +36,415 @@
 
 namespace {
 
-constexpr int kDefaultJPEGQuality = 95;
 
-// An upper estimate of memory usage of Guetzli. The bound is
-// max(kLowerMemusaeMB * 1<<20, pixel_count * kBytesPerPixel)
-constexpr int kBytesPerPixel = 110;
-constexpr int kLowestMemusageMB = 100; // in MB
+    constexpr int kDefaultJPEGQuality = 95;
 
-constexpr int kDefaultMemlimitMB = 6000; // in MB
+    // An upper estimate of memory usage of Guetzli. The bound is
+    // max(kLowerMemusaeMB * 1<<20, pixel_count * kBytesPerPixel)
+    constexpr int kBytesPerPixel = 110;
+    constexpr int kLowestMemusageMB = 100; // in MB
 
-inline uint8_t BlendOnBlack(const uint8_t val, const uint8_t alpha) {
-  return (static_cast<int>(val) * static_cast<int>(alpha) + 128) / 255;
-}
+    constexpr int kDefaultMemlimitMB = 6000; // in MB
 
-bool ReadPNG(const std::string& data, int* xsize, int* ysize,
-             std::vector<uint8_t>* rgb) {
-  png_structp png_ptr =
-      png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-  if (!png_ptr) {
-    return false;
-  }
+    int verbose = 0;
+    int quality = kDefaultJPEGQuality;
+    int memlimit_mb = kDefaultMemlimitMB;
 
-  png_infop info_ptr = png_create_info_struct(png_ptr);
-  if (!info_ptr) {
-    png_destroy_read_struct(&png_ptr, nullptr, nullptr);
-    return false;
-  }
+    enum ProcessResult {
+        NotSupported,
+        ProcessFailed,
+        Sucess,
+    };
 
-  if (setjmp(png_jmpbuf(png_ptr)) != 0) {
-    // Ok we are here because of the setjmp.
-    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-    return false;
-  }
+    class IImageProcessor
+    {
+    public:
+        virtual ProcessResult Process(const std::string& in_data, std::string* out_data) const = 0;
+    };
 
-  std::istringstream memstream(data, std::ios::in | std::ios::binary);
-  png_set_read_fn(png_ptr, static_cast<void*>(&memstream), [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
-    std::istringstream& memstream = *static_cast<std::istringstream*>(png_get_io_ptr(png_ptr));
-    
-    memstream.read(reinterpret_cast<char*>(outBytes), byteCountToRead);
+    inline uint8_t BlendOnBlack(const uint8_t val, const uint8_t alpha) {
+        return (static_cast<int>(val) * static_cast<int>(alpha) + 128) / 255;
+    }
 
-    if (memstream.eof()) png_error(png_ptr, "unexpected end of data");
-    if (memstream.fail()) png_error(png_ptr, "read from memory error");
-  });
+    class PngProcessor : public IImageProcessor
+    {
+    private:
+        static bool ReadPNG(const std::string& data, int* xsize, int* ysize,
+            std::vector<uint8_t>* rgb) {
+            png_structp png_ptr =
+                png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+            if (!png_ptr) {
+                return false;
+            }
 
-  // The png_transforms flags are as follows:
-  // packing == convert 1,2,4 bit images,
-  // strip == 16 -> 8 bits / channel,
-  // shift == use sBIT dynamics, and
-  // expand == palettes -> rgb, grayscale -> 8 bit images, tRNS -> alpha.
-  const unsigned int png_transforms =
-      PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_STRIP_16;
+            png_infop info_ptr = png_create_info_struct(png_ptr);
+            if (!info_ptr) {
+                png_destroy_read_struct(&png_ptr, nullptr, nullptr);
+                return false;
+            }
 
-  png_read_png(png_ptr, info_ptr, png_transforms, nullptr);
+            if (setjmp(png_jmpbuf(png_ptr)) != 0) {
+                // Ok we are here because of the setjmp.
+                png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+                return false;
+            }
 
-  png_bytep* row_pointers = png_get_rows(png_ptr, info_ptr);
+            std::istringstream memstream(data, std::ios::in | std::ios::binary);
+            png_set_read_fn(png_ptr, static_cast<void*>(&memstream), [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
+                std::istringstream& memstream = *static_cast<std::istringstream*>(png_get_io_ptr(png_ptr));
 
-  *xsize = png_get_image_width(png_ptr, info_ptr);
-  *ysize = png_get_image_height(png_ptr, info_ptr);
-  rgb->resize(3 * (*xsize) * (*ysize));
+                memstream.read(reinterpret_cast<char*>(outBytes), byteCountToRead);
 
-  const int components = png_get_channels(png_ptr, info_ptr);
-  switch (components) {
-    case 1: {
-      // GRAYSCALE
-      for (int y = 0; y < *ysize; ++y) {
-        const uint8_t* row_in = row_pointers[y];
-        uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
-        for (int x = 0; x < *xsize; ++x) {
-          const uint8_t gray = row_in[x];
-          row_out[3 * x + 0] = gray;
-          row_out[3 * x + 1] = gray;
-          row_out[3 * x + 2] = gray;
+                if (memstream.eof()) png_error(png_ptr, "unexpected end of data");
+                if (memstream.fail()) png_error(png_ptr, "read from memory error");
+                });
+
+            // The png_transforms flags are as follows:
+            // packing == convert 1,2,4 bit images,
+            // strip == 16 -> 8 bits / channel,
+            // shift == use sBIT dynamics, and
+            // expand == palettes -> rgb, grayscale -> 8 bit images, tRNS -> alpha.
+            const unsigned int png_transforms =
+                PNG_TRANSFORM_PACKING | PNG_TRANSFORM_EXPAND | PNG_TRANSFORM_STRIP_16;
+
+            png_read_png(png_ptr, info_ptr, png_transforms, nullptr);
+
+            png_bytep* row_pointers = png_get_rows(png_ptr, info_ptr);
+
+            *xsize = png_get_image_width(png_ptr, info_ptr);
+            *ysize = png_get_image_height(png_ptr, info_ptr);
+            rgb->resize(3 * (*xsize) * (*ysize));
+
+            const int components = png_get_channels(png_ptr, info_ptr);
+            switch (components) {
+            case 1: {
+                // GRAYSCALE
+                for (int y = 0; y < *ysize; ++y) {
+                    const uint8_t* row_in = row_pointers[y];
+                    uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
+                    for (int x = 0; x < *xsize; ++x) {
+                        const uint8_t gray = row_in[x];
+                        row_out[3 * x + 0] = gray;
+                        row_out[3 * x + 1] = gray;
+                        row_out[3 * x + 2] = gray;
+                    }
+                }
+                break;
+            }
+            case 2: {
+                // GRAYSCALE + ALPHA
+                for (int y = 0; y < *ysize; ++y) {
+                    const uint8_t* row_in = row_pointers[y];
+                    uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
+                    for (int x = 0; x < *xsize; ++x) {
+                        const uint8_t gray = BlendOnBlack(row_in[2 * x], row_in[2 * x + 1]);
+                        row_out[3 * x + 0] = gray;
+                        row_out[3 * x + 1] = gray;
+                        row_out[3 * x + 2] = gray;
+                    }
+                }
+                break;
+            }
+            case 3: {
+                // RGB
+                for (int y = 0; y < *ysize; ++y) {
+                    const uint8_t* row_in = row_pointers[y];
+                    uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
+                    memcpy(row_out, row_in, 3 * (*xsize));
+                }
+                break;
+            }
+            case 4: {
+                // RGBA
+                for (int y = 0; y < *ysize; ++y) {
+                    const uint8_t* row_in = row_pointers[y];
+                    uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
+                    for (int x = 0; x < *xsize; ++x) {
+                        const uint8_t alpha = row_in[4 * x + 3];
+                        row_out[3 * x + 0] = BlendOnBlack(row_in[4 * x + 0], alpha);
+                        row_out[3 * x + 1] = BlendOnBlack(row_in[4 * x + 1], alpha);
+                        row_out[3 * x + 2] = BlendOnBlack(row_in[4 * x + 2], alpha);
+                    }
+                }
+                break;
+            }
+            default:
+                png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+                return false;
+            }
+            png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+            return true;
         }
-      }
-      break;
-    }
-    case 2: {
-      // GRAYSCALE + ALPHA
-      for (int y = 0; y < *ysize; ++y) {
-        const uint8_t* row_in = row_pointers[y];
-        uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
-        for (int x = 0; x < *xsize; ++x) {
-          const uint8_t gray = BlendOnBlack(row_in[2 * x], row_in[2 * x + 1]);
-          row_out[3 * x + 0] = gray;
-          row_out[3 * x + 1] = gray;
-          row_out[3 * x + 2] = gray;
+    public:
+        virtual ProcessResult Process(const std::string& in_data, std::string* out_data) const
+        {
+            static const unsigned char kPNGMagicBytes[] = {
+      0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n',
+            };
+            if (in_data.size() >= 8 &&
+                memcmp(in_data.data(), kPNGMagicBytes, sizeof(kPNGMagicBytes)) == 0) {
+                int xsize, ysize;
+                std::vector<uint8_t> rgb;
+                if (!ReadPNG(in_data, &xsize, &ysize, &rgb)) {
+                    fprintf(stderr, "Error reading PNG data from input file\n");
+                    return ProcessFailed;
+                }
+                double pixels = static_cast<double>(xsize) * ysize;
+                if (memlimit_mb != -1
+                    && (pixels * kBytesPerPixel / (1 << 20) > memlimit_mb
+                        || memlimit_mb < kLowestMemusageMB)) {
+                    fprintf(stderr, "Memory limit would be exceeded. Failing.\n");
+                    return ProcessFailed;
+                }
+
+                guetzli::Params params;
+                params.butteraugli_target = static_cast<float>(
+                    guetzli::ButteraugliScoreForQuality(quality));
+
+                guetzli::ProcessStats stats;
+
+                if (verbose) {
+                    stats.debug_output_file = stderr;
+                }
+
+                if (!guetzli::Process(params, &stats, rgb, xsize, ysize, out_data)) {
+                    fprintf(stderr, "Guetzli processing failed\n");
+                    return ProcessFailed;
+                }
+                return Sucess;
+            }
+            return NotSupported;
         }
-      }
-      break;
-    }
-    case 3: {
-      // RGB
-      for (int y = 0; y < *ysize; ++y) {
-        const uint8_t* row_in = row_pointers[y];
-        uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
-        memcpy(row_out, row_in, 3 * (*xsize));
-      }
-      break;
-    }
-    case 4: {
-      // RGBA
-      for (int y = 0; y < *ysize; ++y) {
-        const uint8_t* row_in = row_pointers[y];
-        uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
-        for (int x = 0; x < *xsize; ++x) {
-          const uint8_t alpha = row_in[4 * x + 3];
-          row_out[3 * x + 0] = BlendOnBlack(row_in[4 * x + 0], alpha);
-          row_out[3 * x + 1] = BlendOnBlack(row_in[4 * x + 1], alpha);
-          row_out[3 * x + 2] = BlendOnBlack(row_in[4 * x + 2], alpha);
+    };
+
+    class TiffProcessor : public IImageProcessor
+    {
+    private:
+        struct tiff_io
+        {
+            const char* data;
+            const size_t size;
+            char* fp;
+        };
+
+        static tsize_t tiff_Read(thandle_t fd, tdata_t buf, tsize_t size)
+        {
+            tiff_io* data = (tiff_io*)fd;
+
+            tsize_t bytes_to_eof = (data->data + data->size) - data->fp;
+            if (size > bytes_to_eof)
+                size = bytes_to_eof;
+
+
+            memcpy(buf, data->fp, size);
+
+            data->fp += size;
+
+            return size;
         }
-      }
-      break;
-    }
-    default:
-      png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-      return false;
-  }
-  png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-  return true;
-}
+        static tsize_t tiff_DummyWrite(thandle_t fd, tdata_t buf, tsize_t size)
+        {
+            fprintf(stderr, "[TIFF] tiff_Write not supported\n");
+            return 0;
+        }
+        static toff_t tiff_Seek(thandle_t fd, toff_t off, int whence)
+        {
+            tiff_io* data = (tiff_io*)fd;
+
+            switch (whence) {
+            case SEEK_SET:
+                data->fp = (char*)(data->data + off);
+                break;
+            case SEEK_CUR:
+                data->fp = (char*)(data->fp + off);
+                break;
+            case SEEK_END:
+                data->fp = (char*)((data->data + data->size) - off);
+                break;
+            }
+
+            return data->fp - data->data;
+        }
+
+        static toff_t tiff_Size(thandle_t fd)
+        {
+            tiff_io* data = (tiff_io*)fd;
+            return data->size;
+        }
+
+        static int tiff_DummyClose(thandle_t fd)
+        {
+            return 0;
+        }
+
+
+        static int tiff_DummyMap(thandle_t, void**, toff_t*)
+        {
+            fprintf(stderr, "[TIFF] tiff_Map not supported\n");
+            return 0;
+        };
+
+        static void tiff_DummyUnmap(thandle_t, tdata_t, toff_t)
+        {
+            fprintf(stderr, "[TIFF] tiff_Unmap not supported\n");
+            return;
+        };
+    private:
+
+        static bool ReadTIFF(const std::string& data, int* xsize, int* ysize,
+            std::vector<uint8_t>* rgb) {
+
+            tiff_io input = { data.data(), data.size(), (char*)data.data()};
+
+            TIFF* tif = TIFFClientOpen(
+                "Memory", "rm", (thandle_t)&input,
+                tiff_Read, tiff_DummyWrite, tiff_Seek, tiff_DummyClose, tiff_Size,
+                tiff_DummyMap, tiff_DummyUnmap);
+
+            if (!tif) {
+                fprintf(stderr, "[TIFF] TIFFClientOpen failed\n");
+                return false;
+            }
+
+            uint32 width(0), height(0), components(0);
+
+            TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
+            TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &height);
+            TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &components);
+
+            uint32 npixels = width * height;
+
+            uint32* pixels = (uint32*)_TIFFmalloc(npixels * sizeof(uint32));
+
+
+
+            int result = TIFFReadRGBAImageOriented(tif, width, height, pixels, ORIENTATION_TOPLEFT);
+            if (!result) {
+                fprintf(stderr, "[TIFF] TIFFReadRGBAImage failed\n");
+                _TIFFfree(pixels);
+                TIFFClose(tif);
+                return false;
+            }
+
+            *xsize = width;
+            *ysize = height;
+            rgb->resize(3 * (*xsize) * (*ysize));
+
+
+            if (components != 4) {
+                for (int y = 0; y < height; ++y) {
+                    const uint32* row_in = pixels + (y * width);
+                    uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
+                    for (int x = 0; x < *xsize; ++x) {
+                        const uint8_t* pixel = (const uint8_t*)&row_in[x];
+                        row_out[3 * x + 0] = pixel[0];
+                        row_out[3 * x + 1] = pixel[1];
+                        row_out[3 * x + 2] = pixel[2];
+                    }
+                }
+            }
+            else {
+                for (int y = 0; y < height; ++y) {
+                    const uint32* row_in = pixels + (y * width);
+                    uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
+                    for (int x = 0; x < *xsize; ++x) {
+                        const uint8_t* pixel = (const uint8_t*)&row_in[x];
+                        const uint8_t alpha = pixel[4];
+                        row_out[3 * x + 0] = BlendOnBlack(pixel[0], alpha);
+                        row_out[3 * x + 1] = BlendOnBlack(pixel[1], alpha);
+                        row_out[3 * x + 2] = BlendOnBlack(pixel[2], alpha);
+                    }
+                }
+            }
+
+            _TIFFfree(pixels);
+            TIFFClose(tif);
+            return true;
+        }
+    public:
+        virtual ProcessResult Process(const std::string& in_data, std::string* out_data) const
+        {
+            static const ushort kTIFFMagickBE = TIFF_BIGENDIAN;
+            static const ushort kTIFFMagickLE = TIFF_LITTLEENDIAN;
+
+            if(in_data.size() >= 2 &&
+                (memcmp(in_data.data(), &kTIFFMagickBE, sizeof(kTIFFMagickBE)) == 0 ||
+                    memcmp(in_data.data(), &kTIFFMagickLE, sizeof(kTIFFMagickLE)) == 0)) {
+
+                int xsize, ysize;
+                std::vector<uint8_t> rgb;
+                if (!ReadTIFF(in_data, &xsize, &ysize, &rgb)) {
+                    fprintf(stderr, "Error reading TIFF data from input file\n");
+                    return ProcessFailed;
+                }
+                double pixels = static_cast<double>(xsize) * ysize;
+                if (memlimit_mb != -1
+                    && (pixels * kBytesPerPixel / (1 << 20) > memlimit_mb
+                        || memlimit_mb < kLowestMemusageMB)) {
+                    fprintf(stderr, "Memory limit would be exceeded. Failing.\n");
+                    return ProcessFailed;
+                }
+
+                guetzli::Params params;
+                params.butteraugli_target = static_cast<float>(
+                    guetzli::ButteraugliScoreForQuality(quality));
+
+                guetzli::ProcessStats stats;
+
+                if (verbose) {
+                    stats.debug_output_file = stderr;
+                }
+
+                if (!guetzli::Process(params, &stats, rgb, xsize, ysize, out_data)) {
+                    fprintf(stderr, "Guetzli processing failed\n");
+                    return ProcessFailed;
+                }
+
+                return Sucess;
+
+            }
+            return NotSupported;
+        }
+    };
+
+    class JpegProcessor : public IImageProcessor
+    {
+    public:
+        virtual ProcessResult Process(const std::string& in_data, std::string* out_data) const
+        {
+            
+            guetzli::JPEGData jpg_header;
+            if (!guetzli::ReadJpeg(in_data, guetzli::JPEG_READ_HEADER, &jpg_header)) {
+                fprintf(stderr, "Error reading JPG data from input file\n");
+                return NotSupported;
+            }
+            double pixels = static_cast<double>(jpg_header.width) * jpg_header.height;
+            if (memlimit_mb != -1
+                && (pixels * kBytesPerPixel / (1 << 20) > memlimit_mb
+                    || memlimit_mb < kLowestMemusageMB)) {
+                fprintf(stderr, "Memory limit would be exceeded. Failing.\n");
+                return ProcessFailed;
+            }
+
+            guetzli::Params params;
+            params.butteraugli_target = static_cast<float>(
+                guetzli::ButteraugliScoreForQuality(quality));
+
+            guetzli::ProcessStats stats;
+
+            if (verbose) {
+                stats.debug_output_file = stderr;
+            }
+
+            if (!guetzli::Process(params, &stats, in_data, out_data)) {
+                fprintf(stderr, "Guetzli processing failed\n");
+                return ProcessFailed;
+            }
+
+            return Sucess;
+        }
+    };
+
 
 std::string ReadFileOrDie(const char* filename) {
   bool read_from_stdin = strncmp(filename, "-", 2) == 0;
@@ -250,9 +541,7 @@ int main(int argc, char** argv) {
 #endif
   std::set_terminate(TerminateHandler);
 
-  int verbose = 0;
-  int quality = kDefaultJPEGQuality;
-  int memlimit_mb = kDefaultMemlimitMB;
+  
 
   int opt_idx = 1;
   for(;opt_idx < argc;opt_idx++) {
@@ -306,61 +595,34 @@ int main(int argc, char** argv) {
     Usage();
   }
 
+  static PngProcessor pngProcessor;
+  static TiffProcessor tiffProcessor;
+  static JpegProcessor jpegProcessor;
+
+  static const IImageProcessor* processors[] = { &pngProcessor, &tiffProcessor, &jpegProcessor };
+
   std::string in_data = ReadFileOrDie(argv[opt_idx]);
   std::string out_data;
 
-  guetzli::Params params;
-  params.butteraugli_target = static_cast<float>(
-      guetzli::ButteraugliScoreForQuality(quality));
+  bool processed = false;
 
-  guetzli::ProcessStats stats;
-
-  if (verbose) {
-    stats.debug_output_file = stderr;
+  for (int i = 0; i != 3; ++i) {
+      const IImageProcessor* processor = processors[i];
+      const ProcessResult result = processor->Process(in_data, &out_data);
+      if (result != ProcessResult::NotSupported)
+      {
+          processed = result == ProcessResult::Sucess;
+          break;
+      }
   }
 
-  static const unsigned char kPNGMagicBytes[] = {
-      0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n',
-  };
-  if (in_data.size() >= 8 &&
-      memcmp(in_data.data(), kPNGMagicBytes, sizeof(kPNGMagicBytes)) == 0) {
-    int xsize, ysize;
-    std::vector<uint8_t> rgb;
-    if (!ReadPNG(in_data, &xsize, &ysize, &rgb)) {
-      fprintf(stderr, "Error reading PNG data from input file\n");
-      return 1;
-    }
-    double pixels = static_cast<double>(xsize) * ysize;
-    if (memlimit_mb != -1
-        && (pixels * kBytesPerPixel / (1 << 20) > memlimit_mb
-            || memlimit_mb < kLowestMemusageMB)) {
-      fprintf(stderr, "Memory limit would be exceeded. Failing.\n");
-      return 1;
-    }
-    if (!guetzli::Process(params, &stats, rgb, xsize, ysize, &out_data)) {
-      fprintf(stderr, "Guetzli processing failed\n");
-      return 1;
-    }
-  } else {
-    guetzli::JPEGData jpg_header;
-    if (!guetzli::ReadJpeg(in_data, guetzli::JPEG_READ_HEADER, &jpg_header)) {
-      fprintf(stderr, "Error reading JPG data from input file\n");
-      return 1;
-    }
-    double pixels = static_cast<double>(jpg_header.width) * jpg_header.height;
-    if (memlimit_mb != -1
-        && (pixels * kBytesPerPixel / (1 << 20) > memlimit_mb
-            || memlimit_mb < kLowestMemusageMB)) {
-      fprintf(stderr, "Memory limit would be exceeded. Failing.\n");
-      return 1;
-    }
-    if (!guetzli::Process(params, &stats, in_data, &out_data)) {
-      fprintf(stderr, "Guetzli processing failed\n");
-      return 1;
-    }
+  if (processed)
+    WriteFileOrDie(argv[opt_idx + 1], out_data);
+  else {
+      fprintf(stderr, "Unknown file format: %s\n", argv[opt_idx]);
+      return 2;
   }
 
-  WriteFileOrDie(argv[opt_idx + 1], out_data);
 #ifdef __USE_GPERFTOOLS__
   ProfilerStop();
 #endif

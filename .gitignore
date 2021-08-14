@@ -27,3 +27,5 @@ test/
 *.ptx64
 
 performanceTest.bat
+
+test.bat
