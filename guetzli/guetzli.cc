@@ -49,6 +49,7 @@ namespace {
     int verbose = 0;
     int quality = kDefaultJPEGQuality;
     int memlimit_mb = kDefaultMemlimitMB;
+    bool blendOnBlack = true;
 
     enum ProcessResult {
         NotSupported,
@@ -64,6 +65,13 @@ namespace {
 
     inline uint8_t BlendOnBlack(const uint8_t val, const uint8_t alpha) {
         return (static_cast<int>(val) * static_cast<int>(alpha) + 128) / 255;
+    }
+    inline uint8_t BlendOnWhite(const uint8_t val, const uint8_t alpha) {
+        if (alpha < 1) return 255 - ((static_cast<int>(val) * static_cast<int>(alpha) + 128) / 255);
+        return val;
+    }
+    inline uint8_t Blend(const uint8_t val, const uint8_t alpha) {
+        return blendOnBlack ? BlendOnBlack(val, alpha) : BlendOnWhite(val, alpha);
     }
 
     class PngProcessor : public IImageProcessor
@@ -137,7 +145,7 @@ namespace {
                     const uint8_t* row_in = row_pointers[y];
                     uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
                     for (int x = 0; x < *xsize; ++x) {
-                        const uint8_t gray = BlendOnBlack(row_in[2 * x], row_in[2 * x + 1]);
+                        const uint8_t gray = Blend(row_in[2 * x], row_in[2 * x + 1]);
                         row_out[3 * x + 0] = gray;
                         row_out[3 * x + 1] = gray;
                         row_out[3 * x + 2] = gray;
@@ -161,9 +169,9 @@ namespace {
                     uint8_t* row_out = &(*rgb)[3 * y * (*xsize)];
                     for (int x = 0; x < *xsize; ++x) {
                         const uint8_t alpha = row_in[4 * x + 3];
-                        row_out[3 * x + 0] = BlendOnBlack(row_in[4 * x + 0], alpha);
-                        row_out[3 * x + 1] = BlendOnBlack(row_in[4 * x + 1], alpha);
-                        row_out[3 * x + 2] = BlendOnBlack(row_in[4 * x + 2], alpha);
+                        row_out[3 * x + 0] = Blend(row_in[4 * x + 0], alpha);
+                        row_out[3 * x + 1] = Blend(row_in[4 * x + 1], alpha);
+                        row_out[3 * x + 2] = Blend(row_in[4 * x + 2], alpha);
                     }
                 }
                 break;
@@ -350,9 +358,9 @@ namespace {
                     for (int x = 0; x < *xsize; ++x) {
                         const uint8_t* pixel = (const uint8_t*)&row_in[x];
                         const uint8_t alpha = pixel[4];
-                        row_out[3 * x + 0] = BlendOnBlack(pixel[0], alpha);
-                        row_out[3 * x + 1] = BlendOnBlack(pixel[1], alpha);
-                        row_out[3 * x + 2] = BlendOnBlack(pixel[2], alpha);
+                        row_out[3 * x + 0] = Blend(pixel[0], alpha);
+                        row_out[3 * x + 1] = Blend(pixel[1], alpha);
+                        row_out[3 * x + 2] = Blend(pixel[2], alpha);
                     }
                 }
             }
@@ -515,21 +523,22 @@ void Usage() {
       "guetzli [flags] input_filename output_filename\n"
       "\n"
       "Flags:\n"
-      "  --verbose    - Print a verbose trace of all attempts to standard output.\n"
-      "  --quality Q  - Visual quality to aim for, expressed as a JPEG quality value.\n"
-      "                 Default value is %d.\n"
-      "  --memlimit M - Memory limit in MB. Guetzli will fail if unable to stay under\n"
-      "                 the limit. Default limit is %d MB.\n"
+      "  --verbose         - Print a verbose trace of all attempts to standard output.\n"
+      "  --quality Q       - Visual quality to aim for, expressed as a JPEG quality value.\n"
+      "                      Default value is %d.\n"
+      "  --memlimit M      - Memory limit in MB. Guetzli will fail if unable to stay under\n"
+      "                      the limit. Default limit is %d MB.\n"
 #ifdef __USE_OPENCL__
-	  "  --opencl     - Use OpenCL\n"
-      "  --checkcl    - Check OpenCL result\n"
+	  "  --opencl          - Use OpenCL\n"
+      "  --checkcl         - Check OpenCL result\n"
 #endif
-	  "  --c          - Use c opt version\n"
+	  "  --c               - Use c opt version\n"
 #ifdef __USE_CUDA__
-	  "  --cuda       - Use CUDA\n"	 
-      "  --checkcuda  - Check CUDA result\n"
+	  "  --cuda            - Use CUDA\n"	 
+      "  --checkcuda       - Check CUDA result\n"
 #endif
-      "  --nomemlimit - Do not limit memory usage.\n", kDefaultJPEGQuality, kDefaultMemlimitMB);
+      "  --blend-on-white  - blend pixels with transparency on white.\n"
+      "  --nomemlimit      - Do not limit memory usage.\n", kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);
 }
 
@@ -574,6 +583,10 @@ int main(int argc, char** argv) {
 	{
 		g_mathMode = MODE_CPU_OPT;
 	}
+    else if (!strcmp(argv[opt_idx], "--blend-on-white"))
+    {
+        blendOnBlack = false;
+    }
 #ifdef __USE_CUDA__
 	else if (!strcmp(argv[opt_idx], "--cuda")) {
 		g_mathMode = MODE_CUDA;
