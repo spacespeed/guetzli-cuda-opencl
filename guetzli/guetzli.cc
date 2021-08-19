@@ -297,12 +297,19 @@ namespace {
             fprintf(stderr, "[TIFF] tiff_Unmap not supported\n");
             return;
         };
+
+        static void tiff_EmptyWarningHandler(const char*, const char*, va_list){
+        }
+
     private:
 
         static bool ReadTIFF(const std::string& data, int* xsize, int* ysize,
             std::vector<uint8_t>* rgb) {
 
             tiff_io input = { data.data(), data.size(), (char*)data.data()};
+
+            if (!verbose)
+                TIFFSetWarningHandler(tiff_EmptyWarningHandler);
 
             TIFF* tif = TIFFClientOpen(
                 "Memory", "rm", (thandle_t)&input,
