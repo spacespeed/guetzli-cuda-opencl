@@ -715,6 +715,9 @@ void Processor::SelectFrequencyMasking(const JPEGData& jpg, OutputImage* img, co
     comparator_->FinishBlockComparisons();
     candidate_coeff_offsets[num_blocks] = candidate_coeffs.size();
 
+    if (candidate_coeffs.size() == 0 || candidate_coeff_errors.size() == 0)
+        return; // Nothing to do. SelectFrequencyBackEnd will crash without coeffs.
+
     SelectFrequencyBackEnd(jpg, img, comp_mask, target_mul, stop_early,
         candidate_coeff_offsets, candidate_coeffs, candidate_coeff_errors);
 
