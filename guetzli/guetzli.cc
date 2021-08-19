@@ -288,13 +288,13 @@ namespace {
 
         static int tiff_DummyMap(thandle_t, void**, toff_t*)
         {
-            fprintf(stderr, "[TIFF] tiff_Map not supported\n");
+            fprintf(stderr, "[TIFF] tiff_Map is not supported\n");
             return 0;
         };
 
         static void tiff_DummyUnmap(thandle_t, tdata_t, toff_t)
         {
-            fprintf(stderr, "[TIFF] tiff_Unmap not supported\n");
+            fprintf(stderr, "[TIFF] tiff_Unmap is not supported\n");
             return;
         };
 
