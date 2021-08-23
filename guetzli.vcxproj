@@ -113,7 +113,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
-      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions);__USE_CUDA__;__USE_OPENCL__</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions);__USE_CUDA__;__USE_OPENCL__;__SUPPORT_FULL_JPEG__</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>true</WholeProgramOptimization>
     </ClCompile>
@@ -188,7 +188,7 @@
       <AdditionalIncludeDirectories>.;third_party\butteraugli;$(OPENCL_SDK_PATH)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions);__USE_CUDA__;__USE_OPENCL__</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;%(PreprocessorDefinitions);__USE_CUDA__;__USE_OPENCL__;__SUPPORT_FULL_JPEG__</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

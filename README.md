@@ -206,6 +206,6 @@ If you have any question about CUDA/OpenCL support, please contact strongtu@tenc
 2. Edit `premake5.lua`, add `defines {"__SUPPORT_FULL_JPEG__"}` and `links { "jpeg" }` under `filter "action:gmake"`. Then do `premake5 --os=linux gmake` to update the makefile.
 3. Run `make` and wait the binary to be created in `bin/Release/guetzli`
 ### On Windows
-1. Install `libjpeg-turbo` using vcpkg: `.\vcpkg install libjpeg-turbo`
+1. Install `libjpeg-turbo` using vcpkg: `.\vcpkg install libjpeg-turbo:x64-windows-static`
 2. Open the Visual Studio project and add `__SUPPORT_FULL_JPEG__` to preprocessor definitions in the project `Property Pages`.
 3. Build.
