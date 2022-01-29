@@ -13,7 +13,54 @@
 bool supportsCuda()
 {
     CUresult err = cuInit(0);
-    return err == CUDA_SUCCESS;
+    if (err != CUDA_SUCCESS)
+        return false;
+
+    CUdevice dev = 0;
+    CUcontext ctxt;
+
+    err = cuCtxCreate(&ctxt, CU_CTX_SCHED_AUTO, dev);
+    if (err != CUDA_SUCCESS)
+        return false;
+
+    int proc_count = 0, thread_count = 0;
+    cuDeviceGetAttribute(&proc_count, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
+    cuDeviceGetAttribute(&thread_count, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
+
+    if (!proc_count || !thread_count)
+    {
+        cuCtxDestroy(ctxt);
+        return false;
+    }
+
+    cu_mem new_mem;
+    err = cuMemAlloc(&new_mem, 1024);
+    if (err != CUDA_SUCCESS)
+    {
+        cuCtxDestroy(ctxt);
+        return false;
+    }
+    cuMemFree(new_mem);
+
+    const char* ptx = (char*)clguetzli_cu64;
+    size_t src_size = sizeof(clguetzli_cu64);
+
+    CUmodule mod;
+    CUjit_option jit_options[2];
+    void* jit_optvals[2];
+    jit_options[0] = CU_JIT_CACHE_MODE;
+    jit_optvals[0] = (void*)(uintptr_t)CU_JIT_CACHE_OPTION_CA;
+    err = cuModuleLoadDataEx(&mod, ptx, 1, jit_options, jit_optvals);
+
+    if (err != CUDA_SUCCESS)
+    {
+        cuCtxDestroy(ctxt);
+        return false;
+    }
+    cuModuleUnload(mod);
+    cuCtxDestroy(ctxt);
+
+    return true;
 }
 
 ocu_args_d_t& getOcu(void)
