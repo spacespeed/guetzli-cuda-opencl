@@ -544,12 +544,32 @@ void Usage() {
 	  "  --cuda            - Use CUDA\n"	 
       "  --checkcuda       - Check CUDA result\n"
 #endif
+      "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt)\n"
       "  --blend-on-white  - blend pixels with transparency on white.\n"
       "  --nomemlimit      - Do not limit memory usage.\n", kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);
 }
 
 }  // namespace
+
+void autoDetectBestMode() {
+#ifdef __USE_CUDA__
+    if (supportsCuda()) {
+        fprintf(stdout, "Autodetect: CUDA detected.\n");
+        g_mathMode = MODE_CUDA;
+        return;
+    }
+#endif
+#ifdef __USE_OPENCL__
+    if (supportsOpenCl()) {
+        fprintf(stdout, "Autodetect: OpenCL detected.\n");
+        g_mathMode = MODE_OPENCL;
+        return;
+    }
+#endif
+    fprintf(stdout, "Autodetect: Using opttimized CPU implementation.\n");
+    g_mathMode = MODE_CPU_OPT;
+}
 
 int main(int argc, char** argv) {
 #ifdef __USE_GPERFTOOLS__
@@ -601,6 +621,9 @@ int main(int argc, char** argv) {
     else if (!strcmp(argv[opt_idx], "--checkcuda")) {
         g_mathMode = MODE_CHECKCUDA;
     }
+    else if (!strcmp(argv[opt_idx], "--auto")) {
+        g_mathMode = MODE_AUTO;
+    }
 #endif
 	else if (!strcmp(argv[opt_idx], "--")) {
       opt_idx++;
@@ -614,6 +637,12 @@ int main(int argc, char** argv) {
   if (argc - opt_idx != 2) {
     Usage();
   }
+
+  if (g_mathMode == MODE_AUTO) {
+      autoDetectBestMode();
+  }
+
+
 
   static PngProcessor pngProcessor;
   static TiffProcessor tiffProcessor;

@@ -385,6 +385,68 @@ cl_platform_id FindOpenCLPlatform(const char* preferredPlatform, cl_device_type 
 	return NULL;
 }
 
+bool supportsOpenCl()
+{
+	cl_uint numPlatforms = 0;
+	cl_int err = CL_SUCCESS;
+
+	// Get (in numPlatforms) the number of OpenCL platforms available
+	// No platform ID will be return, since platforms is NULL
+	err = clGetPlatformIDs(0, NULL, &numPlatforms);
+	if (CL_SUCCESS != err)
+	{
+		return false;
+	}
+	if (0 == numPlatforms)
+	{
+		return false;
+	}
+
+	std::vector<cl_platform_id> platforms(numPlatforms);
+
+	// Now, obtains a list of numPlatforms OpenCL platforms available
+	// The list of platforms available will be returned in platforms
+	err = clGetPlatformIDs(numPlatforms, &platforms[0], NULL);
+	if (CL_SUCCESS != err)
+	{
+		return false;
+	}
+
+	// Check if one of the available platform matches the preferred requirements
+	for (cl_uint i = 0; i < numPlatforms; i++)
+	{
+		bool match = true;
+		cl_uint numDevices = 0;
+
+		size_t nameLen = 0;
+		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, 0, NULL, &nameLen);
+
+		std::vector<char> platformName(nameLen + 1);
+		clGetPlatformInfo(platforms[i], CL_PLATFORM_NAME, nameLen, &platformName[0], NULL);
+		platformName[nameLen] = 0;
+
+		// match is true if the platform's name is the required one or don't care (NULL)
+		if (match)
+		{
+			// Obtains the number of deviceType devices available on platform
+			// When the function failed we expect numDevices to be zero.
+			// We ignore the function return value since a non-zero error code
+			// could happen if this platform doesn't support the specified device type.
+			err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+			if (CL_SUCCESS != err)
+			{
+				return false;
+			}
+
+			if (0 != numDevices)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 
 /*
 * This function read the OpenCL platdorm and device versions

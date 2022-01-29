@@ -17,6 +17,7 @@ struct ocu_args_d_t;
 
 const char* TranslateCUDAError(CUresult errorCode);
 
+bool supportsCuda();
 ocu_args_d_t& getOcu(void);
 
 struct ocu_args_d_t

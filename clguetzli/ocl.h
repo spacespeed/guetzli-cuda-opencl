@@ -54,6 +54,8 @@ const char* TranslateOpenCLError(cl_int errorCode);
 
 int SetupOpenCL(ocl_args_d_t *ocl, cl_device_type deviceType);
 
+bool supportsOpenCl();
+
 ocl_args_d_t& getOcl(void);
 
 struct ocl_args_d_t

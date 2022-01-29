@@ -10,6 +10,12 @@
 #include <nvrtc.h>
 #include "clguetzli/clguetzli_cu_ptx.h"
 
+bool supportsCuda()
+{
+    CUresult err = cuInit(0);
+    return err == CUDA_SUCCESS;
+}
+
 ocu_args_d_t& getOcu(void)
 {
     static bool bInit = false;
