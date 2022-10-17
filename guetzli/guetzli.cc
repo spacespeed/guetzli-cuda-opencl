@@ -36,6 +36,7 @@
 
 namespace {
 
+    constexpr char* version = "v2.1.5";
 
     constexpr int kDefaultJPEGQuality = 95;
 
@@ -526,7 +527,7 @@ void TerminateHandler() {
 
 void Usage() {
   fprintf(stderr,
-      "Guetzli JPEG compressor. Usage: \n"
+      "Guetzli JPEG compressor (%s). Usage: \n"
       "guetzli [flags] input_filename output_filename\n"
       "\n"
       "Flags:\n"
@@ -546,28 +547,47 @@ void Usage() {
 #endif
       "  --auto            - Autodetect best mode (CUDA, OpenCL, C-Opt)\n"
       "  --blend-on-white  - blend pixels with transparency on white.\n"
-      "  --nomemlimit      - Do not limit memory usage.\n", kDefaultJPEGQuality, kDefaultMemlimitMB);
+      "  --nomemlimit      - Do not limit memory usage.\n", version, kDefaultJPEGQuality, kDefaultMemlimitMB);
   exit(1);
 }
 
 }  // namespace
 
 void autoDetectBestMode() {
+    fprintf(stdout, "Autodetect:\n");
 #ifdef __USE_CUDA__
-    if (supportsCuda()) {
-        fprintf(stdout, "Autodetect: CUDA detected.\n");
-        g_mathMode = MODE_CUDA;
-        return;
+    __try {
+        fprintf(stdout, "  Try CUDA...\n");
+        if (supportsCuda()) {
+            fprintf(stdout, "  CUDA detected.\n");
+            g_mathMode = MODE_CUDA;
+            return;
+        }
+        else {
+            fprintf(stdout, "    CUDA is not supporded.\n");
+        }
+    }
+    __except (1 /* EXCEPTION_EXECUTE_HANDLER  */) {
+        fprintf(stdout, "    nvcuda.dll is not found\n");
     }
 #endif
 #ifdef __USE_OPENCL__
-    if (supportsOpenCl()) {
-        fprintf(stdout, "Autodetect: OpenCL detected.\n");
-        g_mathMode = MODE_OPENCL;
-        return;
+    __try {
+        fprintf(stdout, "  Try OpenCL...\n");
+        if (supportsOpenCl()) {
+            fprintf(stdout, "  OpenCL detected.\n");
+            g_mathMode = MODE_OPENCL;
+            return;
+        }
+        else {
+            fprintf(stdout, "    OpenCL is not supporded.\n");
+        }
+    }
+    __except (1 /* EXCEPTION_EXECUTE_HANDLER  */) {
+        fprintf(stdout, "    OpenCl.dll is not found\n");
     }
 #endif
-    fprintf(stdout, "Autodetect: Using opttimized CPU implementation.\n");
+    fprintf(stdout, "  Using optimized CPU implementation (--c).\n");
     g_mathMode = MODE_CPU_OPT;
 }
 
