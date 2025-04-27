@@ -8,106 +8,135 @@ ifndef verbose
   SILENT = @
 endif
 
-.PHONY: clean prebuild prelink
+.PHONY: clean prebuild
+
+SHELLTYPE := posix
+ifeq ($(shell echo "test"), "test")
+	SHELLTYPE := msdos
+endif
+
+# Configurations
+# #############################################
+
+ifeq ($(origin CC), default)
+  CC = gcc
+endif
+ifeq ($(origin CXX), default)
+  CXX = g++
+endif
+ifeq ($(origin AR), default)
+  AR = ar
+endif
+RESCOMP = windres
+DEFINES +=
+INCLUDES += -I. -Ithird_party/butteraugli -Iclguetzli -I"$(CUDA_PATH)/include"
+FORCE_INCLUDE +=
+ALL_CPPFLAGS += $(CPPFLAGS) -MD -MP $(DEFINES) $(INCLUDES)
+ALL_RESFLAGS += $(RESFLAGS) $(DEFINES) $(INCLUDES)
+LIBS +=
+LDDEPS +=
+ALL_LDFLAGS += $(LDFLAGS) `pkg-config --static --libs libpng || libpng-config --static --ldflags`
+LINKCMD = $(AR) -rcs "$@" $(OBJECTS)
+define PREBUILDCMDS
+endef
+define PRELINKCMDS
+endef
+define POSTBUILDCMDS
+endef
 
 ifeq ($(config),release)
-  RESCOMP = windres
-  TARGETDIR = bin/Release
-  TARGET = $(TARGETDIR)/libguetzli_static.a
-  OBJDIR = obj/Release/guetzli_static
-  DEFINES +=
-  INCLUDES += -I. -Ithird_party/butteraugli -Iclguetzli
-  FORCE_INCLUDE +=
-  ALL_CPPFLAGS += $(CPPFLAGS) -MMD -MP $(DEFINES) $(INCLUDES)
-  ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -O3 -g `pkg-config --static --cflags libpng || libpng-config --static --cflags`
-  ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -O3 -g -std=c++11 `pkg-config --static --cflags libpng || libpng-config --static --cflags`
-  ALL_RESFLAGS += $(RESFLAGS) $(DEFINES) $(INCLUDES)
-  LIBS +=
-  LDDEPS +=
-  ALL_LDFLAGS += $(LDFLAGS) `pkg-config --static --libs libpng || libpng-config --static --ldflags`
-  LINKCMD = $(AR) -rcs "$@" $(OBJECTS)
-  define PREBUILDCMDS
-  endef
-  define PRELINKCMDS
-  endef
-  define POSTBUILDCMDS
-  endef
-all: $(TARGETDIR) $(OBJDIR) prebuild prelink $(TARGET)
+TARGETDIR = bin/Release
+TARGET = $(TARGETDIR)/libguetzli_static.a
+OBJDIR = obj/Release/guetzli_static
+ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -O3 -g `pkg-config --static --cflags libpng || libpng-config --static --cflags`
+ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -O3 -g `pkg-config --static --cflags libpng || libpng-config --static --cflags`
+
+else ifeq ($(config),debug)
+TARGETDIR = bin/Debug
+TARGET = $(TARGETDIR)/libguetzli_static.a
+OBJDIR = obj/Debug/guetzli_static
+ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -g `pkg-config --static --cflags libpng || libpng-config --static --cflags`
+ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -g `pkg-config --static --cflags libpng || libpng-config --static --cflags`
+
+endif
+
+# Per File Configurations
+# #############################################
+
+
+# File sets
+# #############################################
+
+GENERATED :=
+OBJECTS :=
+
+GENERATED += $(OBJDIR)/butteraugli.o
+GENERATED += $(OBJDIR)/butteraugli_comparator.o
+GENERATED += $(OBJDIR)/clbutter_comparator.o
+GENERATED += $(OBJDIR)/clguetzli.cl.o
+GENERATED += $(OBJDIR)/clguetzli.o
+GENERATED += $(OBJDIR)/clguetzli_test.o
+GENERATED += $(OBJDIR)/cuguetzli.o
+GENERATED += $(OBJDIR)/cumem_pool.o
+GENERATED += $(OBJDIR)/dct_double.o
+GENERATED += $(OBJDIR)/debug_print.o
+GENERATED += $(OBJDIR)/entropy_encode.o
+GENERATED += $(OBJDIR)/fdct.o
+GENERATED += $(OBJDIR)/gamma_correct.o
+GENERATED += $(OBJDIR)/idct.o
+GENERATED += $(OBJDIR)/jpeg_data.o
+GENERATED += $(OBJDIR)/jpeg_data_decoder.o
+GENERATED += $(OBJDIR)/jpeg_data_encoder.o
+GENERATED += $(OBJDIR)/jpeg_data_reader.o
+GENERATED += $(OBJDIR)/jpeg_data_writer.o
+GENERATED += $(OBJDIR)/jpeg_huffman_decode.o
+GENERATED += $(OBJDIR)/ocl.o
+GENERATED += $(OBJDIR)/ocu.o
+GENERATED += $(OBJDIR)/output_image.o
+GENERATED += $(OBJDIR)/preprocess_downsample.o
+GENERATED += $(OBJDIR)/processor.o
+GENERATED += $(OBJDIR)/quality.o
+GENERATED += $(OBJDIR)/quantize.o
+GENERATED += $(OBJDIR)/score.o
+GENERATED += $(OBJDIR)/utils.o
+OBJECTS += $(OBJDIR)/butteraugli.o
+OBJECTS += $(OBJDIR)/butteraugli_comparator.o
+OBJECTS += $(OBJDIR)/clbutter_comparator.o
+OBJECTS += $(OBJDIR)/clguetzli.cl.o
+OBJECTS += $(OBJDIR)/clguetzli.o
+OBJECTS += $(OBJDIR)/clguetzli_test.o
+OBJECTS += $(OBJDIR)/cuguetzli.o
+OBJECTS += $(OBJDIR)/cumem_pool.o
+OBJECTS += $(OBJDIR)/dct_double.o
+OBJECTS += $(OBJDIR)/debug_print.o
+OBJECTS += $(OBJDIR)/entropy_encode.o
+OBJECTS += $(OBJDIR)/fdct.o
+OBJECTS += $(OBJDIR)/gamma_correct.o
+OBJECTS += $(OBJDIR)/idct.o
+OBJECTS += $(OBJDIR)/jpeg_data.o
+OBJECTS += $(OBJDIR)/jpeg_data_decoder.o
+OBJECTS += $(OBJDIR)/jpeg_data_encoder.o
+OBJECTS += $(OBJDIR)/jpeg_data_reader.o
+OBJECTS += $(OBJDIR)/jpeg_data_writer.o
+OBJECTS += $(OBJDIR)/jpeg_huffman_decode.o
+OBJECTS += $(OBJDIR)/ocl.o
+OBJECTS += $(OBJDIR)/ocu.o
+OBJECTS += $(OBJDIR)/output_image.o
+OBJECTS += $(OBJDIR)/preprocess_downsample.o
+OBJECTS += $(OBJDIR)/processor.o
+OBJECTS += $(OBJDIR)/quality.o
+OBJECTS += $(OBJDIR)/quantize.o
+OBJECTS += $(OBJDIR)/score.o
+OBJECTS += $(OBJDIR)/utils.o
+
+# Rules
+# #############################################
+
+all: $(TARGET)
 	@:
 
-endif
-
-ifeq ($(config),debug)
-  RESCOMP = windres
-  TARGETDIR = bin/Debug
-  TARGET = $(TARGETDIR)/libguetzli_static.a
-  OBJDIR = obj/Debug/guetzli_static
-  DEFINES +=
-  INCLUDES += -I. -Ithird_party/butteraugli -Iclguetzli
-  FORCE_INCLUDE +=
-  ALL_CPPFLAGS += $(CPPFLAGS) -MMD -MP $(DEFINES) $(INCLUDES)
-  ALL_CFLAGS += $(CFLAGS) $(ALL_CPPFLAGS) -g `pkg-config --static --cflags libpng || libpng-config --static --cflags`
-  ALL_CXXFLAGS += $(CXXFLAGS) $(ALL_CPPFLAGS) -g -std=c++11 `pkg-config --static --cflags libpng || libpng-config --static --cflags`
-  ALL_RESFLAGS += $(RESFLAGS) $(DEFINES) $(INCLUDES)
-  LIBS +=
-  LDDEPS +=
-  ALL_LDFLAGS += $(LDFLAGS) `pkg-config --static --libs libpng || libpng-config --static --ldflags`
-  LINKCMD = $(AR) -rcs "$@" $(OBJECTS)
-  define PREBUILDCMDS
-  endef
-  define PRELINKCMDS
-  endef
-  define POSTBUILDCMDS
-  endef
-all: $(TARGETDIR) $(OBJDIR) prebuild prelink $(TARGET)
-	@:
-
-endif
-
-OBJECTS := \
-	$(OBJDIR)/clbutter_comparator.o \
-	$(OBJDIR)/clguetzli.cl.o \
-	$(OBJDIR)/clguetzli.o \
-	$(OBJDIR)/clguetzli_test.o \
-	$(OBJDIR)/cuguetzli.o \
-	$(OBJDIR)/cumem_pool.o \
-	$(OBJDIR)/ocl.o \
-	$(OBJDIR)/ocu.o \
-	$(OBJDIR)/utils.o \
-	$(OBJDIR)/butteraugli_comparator.o \
-	$(OBJDIR)/dct_double.o \
-	$(OBJDIR)/debug_print.o \
-	$(OBJDIR)/entropy_encode.o \
-	$(OBJDIR)/fdct.o \
-	$(OBJDIR)/gamma_correct.o \
-	$(OBJDIR)/idct.o \
-	$(OBJDIR)/jpeg_data.o \
-	$(OBJDIR)/jpeg_data_decoder.o \
-	$(OBJDIR)/jpeg_data_encoder.o \
-	$(OBJDIR)/jpeg_data_reader.o \
-	$(OBJDIR)/jpeg_data_writer.o \
-	$(OBJDIR)/jpeg_huffman_decode.o \
-	$(OBJDIR)/output_image.o \
-	$(OBJDIR)/preprocess_downsample.o \
-	$(OBJDIR)/processor.o \
-	$(OBJDIR)/quality.o \
-	$(OBJDIR)/quantize.o \
-	$(OBJDIR)/score.o \
-	$(OBJDIR)/butteraugli.o \
-
-RESOURCES := \
-
-CUSTOMFILES := \
-
-SHELLTYPE := msdos
-ifeq (,$(ComSpec)$(COMSPEC))
-  SHELLTYPE := posix
-endif
-ifeq (/bin,$(findstring /bin,$(SHELL)))
-  SHELLTYPE := posix
-endif
-
-$(TARGET): $(GCH) ${CUSTOMFILES} $(OBJECTS) $(LDDEPS) $(RESOURCES)
+$(TARGET): $(GENERATED) $(OBJECTS) $(LDDEPS) | $(TARGETDIR)
+	$(PRELINKCMDS)
 	@echo Linking guetzli_static
 	$(SILENT) $(LINKCMD)
 	$(POSTBUILDCMDS)
@@ -132,114 +161,125 @@ clean:
 	@echo Cleaning guetzli_static
 ifeq (posix,$(SHELLTYPE))
 	$(SILENT) rm -f  $(TARGET)
+	$(SILENT) rm -rf $(GENERATED)
 	$(SILENT) rm -rf $(OBJDIR)
 else
 	$(SILENT) if exist $(subst /,\\,$(TARGET)) del $(subst /,\\,$(TARGET))
+	$(SILENT) if exist $(subst /,\\,$(GENERATED)) del /s /q $(subst /,\\,$(GENERATED))
 	$(SILENT) if exist $(subst /,\\,$(OBJDIR)) rmdir /s /q $(subst /,\\,$(OBJDIR))
 endif
 
-prebuild:
+prebuild: | $(OBJDIR)
 	$(PREBUILDCMDS)
 
-prelink:
-	$(PRELINKCMDS)
-
 ifneq (,$(PCH))
-$(OBJECTS): $(GCH) $(PCH)
-$(GCH): $(PCH)
+$(OBJECTS): $(GCH) | $(PCH_PLACEHOLDER)
+$(GCH): $(PCH) | prebuild
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) -x c++-header $(ALL_CXXFLAGS) -o "$@" -MF "$(@:%.gch=%.d)" -c "$<"
+$(PCH_PLACEHOLDER): $(GCH) | $(OBJDIR)
+ifeq (posix,$(SHELLTYPE))
+	$(SILENT) touch "$@"
+else
+	$(SILENT) echo $null >> "$@"
+endif
+else
+$(OBJECTS): | prebuild
 endif
 
+
+# File Rules
+# #############################################
+
 $(OBJDIR)/clbutter_comparator.o: clguetzli/clbutter_comparator.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/clguetzli.cl.o: clguetzli/clguetzli.cl.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/clguetzli.o: clguetzli/clguetzli.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/clguetzli_test.o: clguetzli/clguetzli_test.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/cuguetzli.o: clguetzli/cuguetzli.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/cumem_pool.o: clguetzli/cumem_pool.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/ocl.o: clguetzli/ocl.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/ocu.o: clguetzli/ocu.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/utils.o: clguetzli/utils.cpp
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/butteraugli_comparator.o: guetzli/butteraugli_comparator.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/dct_double.o: guetzli/dct_double.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/debug_print.o: guetzli/debug_print.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/entropy_encode.o: guetzli/entropy_encode.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/fdct.o: guetzli/fdct.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/gamma_correct.o: guetzli/gamma_correct.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/idct.o: guetzli/idct.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/jpeg_data.o: guetzli/jpeg_data.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/jpeg_data_decoder.o: guetzli/jpeg_data_decoder.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/jpeg_data_encoder.o: guetzli/jpeg_data_encoder.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/jpeg_data_reader.o: guetzli/jpeg_data_reader.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/jpeg_data_writer.o: guetzli/jpeg_data_writer.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/jpeg_huffman_decode.o: guetzli/jpeg_huffman_decode.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/output_image.o: guetzli/output_image.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/preprocess_downsample.o: guetzli/preprocess_downsample.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/processor.o: guetzli/processor.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/quality.o: guetzli/quality.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/quantize.o: guetzli/quantize.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/score.o: guetzli/score.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 $(OBJDIR)/butteraugli.o: third_party/butteraugli/butteraugli/butteraugli.cc
-	@echo $(notdir $<)
+	@echo "$(notdir $<)"
 	$(SILENT) $(CXX) $(ALL_CXXFLAGS) $(FORCE_INCLUDE) -o "$@" -MF "$(@:%.o=%.d)" -c "$<"
 
 -include $(OBJECTS:%.o=%.d)
 ifneq (,$(PCH))
-  -include $(OBJDIR)/$(notdir $(PCH)).d
+  -include $(PCH_PLACEHOLDER).d
 endif

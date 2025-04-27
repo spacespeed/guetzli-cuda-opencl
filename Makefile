@@ -11,10 +11,13 @@ endif
 ifeq ($(config),release)
   guetzli_static_config = release
   guetzli_config = release
-endif
-ifeq ($(config),debug)
+
+else ifeq ($(config),debug)
   guetzli_static_config = debug
   guetzli_config = debug
+
+else
+  $(error "invalid configuration $(config)")
 endif
 
 PROJECTS := guetzli_static guetzli
@@ -52,4 +55,4 @@ help:
 	@echo "   guetzli_static"
 	@echo "   guetzli"
 	@echo ""
-	@echo "For more information, see http://industriousone.com/premake/quick-start"
+	@echo "For more information, see https://github.com/premake/premake-core/wiki"

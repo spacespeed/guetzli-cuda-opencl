@@ -1,3 +1,4 @@
+#define __USE_CUDA__
 #ifndef __CL_GUETZLI_CU__
 #define __USE_OPENCL__
 #endif
